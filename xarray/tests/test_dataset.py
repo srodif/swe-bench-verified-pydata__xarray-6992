@@ -3260,6 +3260,31 @@ class TestDataset:
         assert_identical(obj, ds, check_default_indexes=False)
         assert len(obj.xindexes) == 0
 
+    def test_data_vars_len_after_reset_index_drop(self) -> None:
+        """Test that DataVariables.__len__ returns correct value after reset_index with drop=True.
+        
+        Regression test for issue where more coord_names than variables would cause
+        DataVariables.__len__ to return negative values, violating the __len__ contract.
+        """
+        # Create dataset with coordinates that will be indexed and then dropped
+        ds = Dataset(coords={"a": ("x", [1, 2, 3]), "b": ("x", ['a', 'b', 'c'])})
+        
+        # Set multi-index and then reset it with drop=True
+        # This can result in more coord_names than variables
+        result = ds.set_index(z=['a', 'b']).reset_index("z", drop=True)
+        
+        # The key test: DataVariables.__len__ should never return negative values
+        data_vars_len = len(result.data_vars)
+        assert data_vars_len >= 0, f"DataVariables.__len__ returned negative value: {data_vars_len}"
+        
+        # Length should be consistent with iteration
+        data_vars_list = list(result.data_vars)
+        assert len(data_vars_list) == data_vars_len
+        
+        # This specific case should have 0 data variables
+        assert data_vars_len == 0
+        assert len(data_vars_list) == 0
+
     def test_reorder_levels(self) -> None:
         ds = create_test_multiindex()
         mindex = ds["x"].to_index()
